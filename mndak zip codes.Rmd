@@ -20,6 +20,7 @@ When you click the **Knit** button a document will be generated that includes bo
 library(tigris)
 library(sf)
 library(dplyr)
+library(leaflet)
 
 # 1. Download ZCTAs for the specific states (using their prefixes)
 # MN (55, 56), ND (58), SD (57), WI (53, 54)
@@ -39,38 +40,11 @@ final_list <- centroids %>%
 
 head(final_list)
 
-
-
-
-
-
 ```
 
-```{r leaflet map}
 
-library(leaflet)
-
-# Create the map
-leaflet(final_list) %>%
-  addTiles() %>%  # Adds the default OpenStreetMap tiles
-  addCircleMarkers(
-    lng = ~lon, 
-    lat = ~lat, 
-    radius = 3, 
-    color = "blue",
-    stroke = FALSE, 
-    fillOpacity = 0.5,
-    popup = ~ZCTA5CE20  # Shows the ZIP code when you click a point
-  )
-
-
-
-```
 
 ```{r user data}
-
-library(leaflet)
-library(dplyr)
 
 # 1. Load your local data
 # Ensure the file is in your current working directory
@@ -112,6 +86,27 @@ leaflet(map_data) %>%
 
 ```
 
+
+```{r leaflet map}
+
+# Create the map
+leaflet(final_list) %>%
+  addTiles() %>%  # Adds the default OpenStreetMap tiles
+  addCircleMarkers(
+    lng = ~lon, 
+    lat = ~lat, 
+    radius = 3, 
+    color = "blue",
+    stroke = FALSE, 
+    fillOpacity = 0.5,
+    popup = ~ZCTA5CE20  # Shows the ZIP code when you click a point
+  )
+
+
+
+```
+
+
 ```{r google map}
 
 # 1. Register your API key (get one at console.cloud.google.com)
@@ -128,16 +123,5 @@ ggmap(midwest_map) +
 
 ```
 
-```{r cars}
-summary(cars)
-```
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
