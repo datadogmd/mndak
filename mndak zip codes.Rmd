@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 ```
 
 ## R Markdown
@@ -15,17 +15,18 @@ This is an R Markdown document. Markdown is a simple formatting syntax for autho
 
 When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
-```{r gemini output}
+```{r gemini output, echo=FALSE}
 
 library(tigris)
 library(sf)
 library(dplyr)
 library(leaflet)
+library(readODS)
 
 # 1. Download ZCTAs for the specific states (using their prefixes)
 # MN (55, 56), ND (58), SD (57), WI (53, 54)
 prefixes <- c("55", "56", "58", "57", "53", "54")
-midwest_zips <- zctas(cb = TRUE, starts_with = prefixes, year = 2020)
+midwest_zips <- zctas(cb = TRUE, starts_with = prefixes, year = 2020, progress_bar = FALSE)
 
 # 2. Extract the center points (Centroids)
 # This converts the area polygons into single points
@@ -38,20 +39,23 @@ final_list <- centroids %>%
   st_drop_geometry() %>%
   select(ZCTA5CE20, lat, lon)
 
-head(final_list)
+# head(final_list)
 
 ```
 
 
 
-```{r user data}
+```{r user data map, echo=FALSE}
 
 # 1. Load your local data
 # Ensure the file is in your current working directory
-user_data <- read.csv("mndak_zip.csv",
-                      colClasses = c("zipcode" = "character"),
-                      stringsAsFactors = FALSE)
+# user_data <- read.csv("mndak_zip.csv",
+#                       colClasses = c("zipcode" = "character"),
+#                       stringsAsFactors = FALSE)
 
+
+user_data <- read_ods("mndak zip codes.ods", sheet = 1, col_types = "cccc")
+user_data$tga26 <- toupper(user_data$tga26)
 # 2. Join your data with the coordinate list (final_list from previous step)
 # This assumes 'final_list' has columns: ZCTA5CE20, lat, lon
 map_data <- user_data %>%
@@ -61,8 +65,21 @@ map_data <- user_data %>%
 # YES = Green, MAYBE = Blue, NO = Red
 pal <- colorFactor(
   palette = c("blue", "red", "green"), 
-  levels = c("MAYBE", "NO", "YES")
+  levels = c("MAYBE", "NO", "YES"),
+  na.color = "transparent" # This makes NA values invisible
 )
+
+
+# Create a list of labels with HTML formatting
+# <b> is for bold, <br/> is for a new line
+labels <- sprintf(
+  "Name: %s<br/>ZIP: %s<br/>Status: %s<br/>",
+  map_data$firstname,
+  map_data$zipcode, 
+  map_data$tga26
+) %>% lapply(htmltools::HTML)
+
+
 
 # 4. Build the Leaflet Map
 leaflet(map_data) %>%
@@ -70,15 +87,24 @@ leaflet(map_data) %>%
   addCircleMarkers(
     lng = ~lon, 
     lat = ~lat,
-    color = ~pal(status),  # Apply the color logic
+    color = ~pal(tga26),  # Apply the color logic
     radius = 5,
     fillOpacity = 0.8,
     stroke = FALSE,
-    popup = ~paste0("<b>ZIP: </b>", zipcode, "<br><b>Status: </b>", status)
+    label = labels, # Use the HTML labels made earlier
+    labelOptions = labelOptions(
+      style = list(
+        "font-weight" = "normal", 
+        "padding" = "8px",          # Extra space like a popup
+        "border-color" = "rgba(0,0,0,0.5)"
+      ),
+      textsize = "14px",
+      direction = "auto"
+    )
   ) %>%
   addLegend(
     pal = pal, 
-    values = ~status, 
+    values = ~tga26, 
     title = "Status",
     position = "bottomright"
   )
@@ -87,41 +113,3 @@ leaflet(map_data) %>%
 ```
 
 
-```{r leaflet map}
-
-# Create the map
-leaflet(final_list) %>%
-  addTiles() %>%  # Adds the default OpenStreetMap tiles
-  addCircleMarkers(
-    lng = ~lon, 
-    lat = ~lat, 
-    radius = 3, 
-    color = "blue",
-    stroke = FALSE, 
-    fillOpacity = 0.5,
-    popup = ~ZCTA5CE20  # Shows the ZIP code when you click a point
-  )
-
-
-
-```
-
-
-```{r google map}
-
-# 1. Register your API key (get one at console.cloud.google.com)
-# register_google(key = "YOUR_API_KEY_HERE")
-
-# 2. Get the base map (centered on the Midwest)
-midwest_map <- get_googlemap(center = c(lon = -95, lat = 45), zoom = 5, maptype = "terrain")
-
-# 3. Plot the points using ggplot2 syntax
-ggmap(midwest_map) +
-  geom_point(data = final_list, aes(x = lon, y = lat), color = "red", size = 0.5, alpha = 0.4) +
-  labs(title = "ZCTA Centroids: MN, ND, SD, WI")
-
-
-```
-
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
